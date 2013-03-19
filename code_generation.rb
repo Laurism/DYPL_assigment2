@@ -58,23 +58,21 @@ module Model
       con.each do |add_constraint|
         to_eval << "(" << add_constraint.gsub(attributes[i][0], "@#{attributes[i][0]}") << ") and "
       end
-      to_eval << "@#{attributes[i][0]}.class == #{attributes[i][1]} ); "
+      to_eval << "@#{attributes[i][0]}.is_a? #{attributes[i][1]} ); "
       to_eval << "@#{attributes[i][0]}; else; raise RuntimeError; end; end; "
-      to_eval << "def #{attributes[i][0]}=(val); if ( "
+      to_eval << "def #{attributes[i][0]}=(val); if ( val.is_a? #{attributes[i][1]} "
       con.each do |add_constraint|
-        to_eval << "(" << add_constraint.gsub(attributes[i][0], "val") << ") and "
+        to_eval << "and (" << add_constraint.gsub(attributes[i][0], "val") << ") "
       end
-      to_eval << "val.class == #{attributes[i][1]} ); "
-      p "if val.class == #{attributes[i]}; p 'BIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIITE'; end"
+      to_eval << " ); "
       to_eval << "@#{attributes[i][0]}=(val); else; raise RuntimeError; end; end; "
       i += 1
     end
     to_eval << "end "
 
     eval to_eval
-#    p to_eval
-#    p "-----------------------------------------------------------------"
 
+    # Add method load_from_file(path) in Class className
     ganman = String.new
     ganman << "#{className}.class_eval do; def load_from_file(path); "
 
@@ -87,57 +85,6 @@ module Model
     ganman << "end; end "
 
     eval ganman
-
-#    p ganman
-#    p "-----------------------------------------------------------------"
-
-=begin
-    TestPerson.class_eval do
-      def load_from_file(path)
-        f = YAML.load_file(path)
-        t = Array.new
-        i = 0
-        f.first[1].each do |fkey|
-          merge = "t[" << i.to_s << "] = TestPerson.new"
-          eval merge
-          [["name", String], ["age", Fixnum]].each do |attr|
-            if fkey[attr.first]
-              begin
-                if attr[1] == String
-                  merge = "t[" << i.to_s << "]." << attr[0] << " = \"" << fkey[attr.first] << "\""
-                else
-                  merge = "t[" << i.to_s << "]." << attr[0] << " = " << fkey[attr.first].to_s
-                end
-                eval merge
-              rescue
-                i -= 1
-              end
-            else
-              t.delete_at(i)
-              i -= 1
-            end
-          end
-          i += 1
-        end
-        return t
-      end
-    end
-=end
-
-=begin
-#    begin
-      per = eval "#{className}.new"
-      poo = per.load_from_file("dummy-class.yml")
-      p poo.size
-    rescue RuntimeError
-      p $!
-      caller[0..100].each do |lvl|
-        p lvl
-      end
-    end
-=end
-
-#    p "-----------------------------------------------------------------"
 
     # What is the correct return value then? A Class. So, eval "#{className}"
     return eval "#{className}.new"
