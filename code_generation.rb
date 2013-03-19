@@ -17,17 +17,17 @@ module Model
     my_array.each do |line|
       line = line.split("\n")[0]
       lineAttr = line.split(" :")[0].lstrip
-      param = line.split(":")[1].lstrip.split(", ")
 
+      param = line.split(":")[1].lstrip.split(", ")
       value = param[1]
 
-      if lineAttr == "title"
+      if lineAttr.rstrip == "title"
         next
-      elsif lineAttr == "attribute"
+      elsif lineAttr.rstrip == "attribute"
         if Class == (eval "#{value}.class")
           attributes.push(Array[param[0], eval(value)])
         end
-      elsif lineAttr == "constraint"
+      elsif lineAttr.rstrip == "constraint"
         if String == (eval "#{value}.class")
           constraints.push(Array[param[0], eval(value)])
         end
@@ -65,24 +65,79 @@ module Model
         to_eval << "(" << add_constraint.gsub(attributes[i][0], "val") << ") and "
       end
       to_eval << "val.class == #{attributes[i][1]} ); "
+      p "if val.class == #{attributes[i]}; p 'BIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIITE'; end"
       to_eval << "@#{attributes[i][0]}=(val); else; raise RuntimeError; end; end; "
       i += 1
     end
     to_eval << "end "
+
     eval to_eval
+#    p to_eval
+#    p "-----------------------------------------------------------------"
 
     ganman = String.new
     ganman << "#{className}.class_eval do; def load_from_file(path); "
 
     ganman << "f = YAML.load_file(path); t = Array.new; i = 0; f.first[1].each do |fkey|; "
     ganman << "merge = \"t[\" << i.to_s << \"] = #{className}.new\"; eval merge; "
-    ganman << "#{attributes}.each do |attr|; if fkey[attr.first]; if attr[1] == String; "
-    ganman << "merge = \"t[\" << i.to_s << \"].\" << attr[0] << \" = \\\"\" << fkey[attr.first] << \"\\\"\"; eval merge; else; "
-    ganman << "merge = \"t[\" << i.to_s << \"].\" << attr[0] << \" = \" << fkey[attr.first].to_s; eval merge; end; end; end; "
+    ganman << "#{attributes}.each do |attr|; if fkey[attr.first]; begin; if attr[1] == String; "
+    ganman << "merge = \"t[\" << i.to_s << \"].\" << attr[0] << \" = \\\"\" << fkey[attr.first] << \"\\\"\"; else; "
+    ganman << "merge = \"t[\" << i.to_s << \"].\" << attr[0] << \" = \" << fkey[attr.first].to_s; end; eval merge; rescue; i -= 1; end; else; t.delete_at(i); i -= 1; end; end; "
     ganman << "i += 1; end; return t; "
     ganman << "end; end "
 
     eval ganman
+
+#    p ganman
+#    p "-----------------------------------------------------------------"
+
+=begin
+    TestPerson.class_eval do
+      def load_from_file(path)
+        f = YAML.load_file(path)
+        t = Array.new
+        i = 0
+        f.first[1].each do |fkey|
+          merge = "t[" << i.to_s << "] = TestPerson.new"
+          eval merge
+          [["name", String], ["age", Fixnum]].each do |attr|
+            if fkey[attr.first]
+              begin
+                if attr[1] == String
+                  merge = "t[" << i.to_s << "]." << attr[0] << " = \"" << fkey[attr.first] << "\""
+                else
+                  merge = "t[" << i.to_s << "]." << attr[0] << " = " << fkey[attr.first].to_s
+                end
+                eval merge
+              rescue
+                i -= 1
+              end
+            else
+              t.delete_at(i)
+              i -= 1
+            end
+          end
+          i += 1
+        end
+        return t
+      end
+    end
+=end
+
+=begin
+#    begin
+      per = eval "#{className}.new"
+      poo = per.load_from_file("dummy-class.yml")
+      p poo.size
+    rescue RuntimeError
+      p $!
+      caller[0..100].each do |lvl|
+        p lvl
+      end
+    end
+=end
+
+#    p "-----------------------------------------------------------------"
 
     # What is the correct return value then? A Class. So, eval "#{className}"
     return eval "#{className}.new"
